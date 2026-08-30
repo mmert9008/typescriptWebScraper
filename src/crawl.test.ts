@@ -3,6 +3,8 @@ import {
   normalizeURL,
   getHeadingFromHTML,
   getFirstParagraphFromHTML,
+  getURLsFromHTML,
+  getImagesFromHTML,
 } from "./crawl";
 
 // normalizeURL tests
@@ -122,5 +124,85 @@ test("getFirstParagraphFromHTML main without p falls back to outside p", () => {
   `;
   const actual = getFirstParagraphFromHTML(inputBody);
   const expected = "Outside fallback paragraph.";
+  expect(actual).toEqual(expected);
+});
+
+// getURLsFromHTML tests
+test("getURLsFromHTML absolute", () => {
+  const inputURL = "https://crawler-test.com";
+  const inputBody = `<html><body><a href="/path/one"><span>Boot.dev</span></a></body></html>`;
+
+  const actual = getURLsFromHTML(inputBody, inputURL);
+  const expected = ["https://crawler-test.com/path/one"];
+
+  expect(actual).toEqual(expected);
+});
+
+test("getURLsFromHTML both relative and absolute", () => {
+  const inputURL = "https://crawler-test.com";
+  const inputBody = `<html><body>
+    <a href="/path/one">Relative</a>
+    <a href="https://other-domain.com/path/two">Absolute</a>
+  </body></html>`;
+
+  const actual = getURLsFromHTML(inputBody, inputURL);
+  const expected = [
+    "https://crawler-test.com/path/one",
+    "https://other-domain.com/path/two",
+  ];
+
+  expect(actual).toEqual(expected);
+});
+
+test("getURLsFromHTML ignore missing or invalid href", () => {
+  const inputURL = "https://crawler-test.com";
+  const inputBody = `<html><body>
+    <a>No href</a>
+    <a href="/valid">Valid link</a>
+  </body></html>`;
+
+  const actual = getURLsFromHTML(inputBody, inputURL);
+  const expected = ["https://crawler-test.com/valid"];
+
+  expect(actual).toEqual(expected);
+});
+
+// getImagesFromHTML tests
+test("getImagesFromHTML relative", () => {
+  const inputURL = "https://crawler-test.com";
+  const inputBody = `<html><body><img src="/logo.png" alt="Logo"></body></html>`;
+
+  const actual = getImagesFromHTML(inputBody, inputURL);
+  const expected = ["https://crawler-test.com/logo.png"];
+
+  expect(actual).toEqual(expected);
+});
+
+test("getImagesFromHTML multiple images absolute and relative", () => {
+  const inputURL = "https://crawler-test.com";
+  const inputBody = `<html><body>
+    <img src="/images/pic1.png" alt="Pic 1">
+    <img src="https://cdn.example.com/pic2.jpg" alt="Pic 2">
+  </body></html>`;
+
+  const actual = getImagesFromHTML(inputBody, inputURL);
+  const expected = [
+    "https://crawler-test.com/images/pic1.png",
+    "https://cdn.example.com/pic2.jpg",
+  ];
+
+  expect(actual).toEqual(expected);
+});
+
+test("getImagesFromHTML ignore missing src", () => {
+  const inputURL = "https://crawler-test.com";
+  const inputBody = `<html><body>
+    <img>
+    <img src="/banner.webp" alt="Banner">
+  </body></html>`;
+
+  const actual = getImagesFromHTML(inputBody, inputURL);
+  const expected = ["https://crawler-test.com/banner.webp"];
+
   expect(actual).toEqual(expected);
 });

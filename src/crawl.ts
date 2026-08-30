@@ -37,3 +37,47 @@ export function getFirstParagraphFromHTML(html: string): string {
   }
   return "";
 }
+
+export function getURLsFromHTML(html: string, baseURL: string): string[] {
+  const urls: string[] = [];
+  const dom = new JSDOM(html);
+  const doc = dom.window.document;
+  const linkElements = doc.querySelectorAll("a");
+
+  for (const linkElement of linkElements) {
+    const href = linkElement.getAttribute("href");
+    if (!href) {
+      continue;
+    }
+    try {
+      const urlObj = new URL(href, baseURL);
+      urls.push(urlObj.href);
+    } catch (err) {
+      // Ignore invalid URLs
+    }
+  }
+
+  return urls;
+}
+
+export function getImagesFromHTML(html: string, baseURL: string): string[] {
+  const images: string[] = [];
+  const dom = new JSDOM(html);
+  const doc = dom.window.document;
+  const imgElements = doc.querySelectorAll("img");
+
+  for (const imgElement of imgElements) {
+    const src = imgElement.getAttribute("src");
+    if (!src) {
+      continue;
+    }
+    try {
+      const urlObj = new URL(src, baseURL);
+      images.push(urlObj.href);
+    } catch (err) {
+      // Ignore invalid URLs
+    }
+  }
+
+  return images;
+}
