@@ -5,6 +5,7 @@ import {
   getFirstParagraphFromHTML,
   getURLsFromHTML,
   getImagesFromHTML,
+  extractPageData,
 } from "./crawl";
 
 // normalizeURL tests
@@ -203,6 +204,80 @@ test("getImagesFromHTML ignore missing src", () => {
 
   const actual = getImagesFromHTML(inputBody, inputURL);
   const expected = ["https://crawler-test.com/banner.webp"];
+
+  expect(actual).toEqual(expected);
+});
+
+// extractPageData tests
+test("extractPageData basic", () => {
+  const inputURL = "https://crawler-test.com";
+  const inputBody = `
+    <html><body>
+      <h1>Test Title</h1>
+      <p>This is the first paragraph.</p>
+      <a href="/link1">Link 1</a>
+      <img src="/image1.jpg" alt="Image 1">
+    </body></html>
+  `;
+
+  const actual = extractPageData(inputBody, inputURL);
+  const expected = {
+    url: "https://crawler-test.com",
+    heading: "Test Title",
+    first_paragraph: "This is the first paragraph.",
+    outgoing_links: ["https://crawler-test.com/link1"],
+    image_urls: ["https://crawler-test.com/image1.jpg"],
+  };
+
+  expect(actual).toEqual(expected);
+});
+
+test("extractPageData empty or missing elements", () => {
+  const inputURL = "https://crawler-test.com/empty";
+  const inputBody = `<html><body><div>No elements here</div></body></html>`;
+
+  const actual = extractPageData(inputBody, inputURL);
+  const expected = {
+    url: "https://crawler-test.com/empty",
+    heading: "",
+    first_paragraph: "",
+    outgoing_links: [],
+    image_urls: [],
+  };
+
+  expect(actual).toEqual(expected);
+});
+
+test("extractPageData complex page with multiple links, images, and h2 fallback", () => {
+  const inputURL = "https://crawler-test.com";
+  const inputBody = `
+    <html><body>
+      <h2>Section Heading</h2>
+      <p>Outside paragraph.</p>
+      <main>
+        <p>Main content paragraph.</p>
+      </main>
+      <a href="/about">About</a>
+      <a href="https://other.com/contact">Contact</a>
+      <img src="/icon.svg" alt="Icon">
+      <img src="https://cdn.test.com/pic.png" alt="Pic">
+    </body></html>
+  `;
+
+  const actual = extractPageData(inputBody, inputURL);
+  const expected = {
+    url: "https://crawler-test.com",
+    heading: "Section Heading",
+    first_paragraph: "Main content paragraph.",
+    outgoing_links: [
+      "https://crawler-test.com/about",
+      "https://other.com/contact",
+    ],
+    image_urls: [
+      "https://crawler-test.com/icon.svg",
+      "https://cdn.test.com/pic.png",
+    ],
+  };
 
   expect(actual).toEqual(expected);
 });
