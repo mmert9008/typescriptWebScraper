@@ -102,3 +102,31 @@ export function extractPageData(
     image_urls: getImagesFromHTML(html, pageURL),
   };
 }
+
+export async function getHTML(url: string): Promise<string | undefined> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "BootCrawler/1.0",
+      },
+    });
+
+    if (response.status >= 400) {
+      console.error(`Error: HTTP status ${response.status} for ${url}`);
+      return;
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("text/html")) {
+      console.error(
+        `Error: Content-Type is not text/html (${contentType}) for ${url}`
+      );
+      return;
+    }
+
+    return await response.text();
+  } catch (err) {
+    console.error(`Error fetching ${url}: ${(err as Error).message}`);
+    return;
+  }
+}
