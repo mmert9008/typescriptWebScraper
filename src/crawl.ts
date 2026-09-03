@@ -130,3 +130,42 @@ export async function getHTML(url: string): Promise<string | undefined> {
     return;
   }
 }
+
+export async function crawlPage(
+  baseURL: string,
+  currentURL: string = baseURL,
+  pages: Record<string, number> = {}
+): Promise<Record<string, number>> {
+  try {
+    const baseURLObj = new URL(baseURL);
+    const currentURLObj = new URL(currentURL);
+
+    if (baseURLObj.hostname !== currentURLObj.hostname) {
+      return pages;
+    }
+  } catch (err) {
+    return pages;
+  }
+
+  const normalizedCurrentURL = normalizeURL(currentURL);
+
+  if (pages[normalizedCurrentURL] !== undefined) {
+    pages[normalizedCurrentURL]++;
+    return pages;
+  }
+
+  pages[normalizedCurrentURL] = 1;
+
+  console.log(`crawling ${currentURL}`);
+  const html = await getHTML(currentURL);
+  if (!html) {
+    return pages;
+  }
+
+  const nextURLs = getURLsFromHTML(html, baseURL);
+  for (const nextURL of nextURLs) {
+    pages = await crawlPage(baseURL, nextURL, pages);
+  }
+
+  return pages;
+}
