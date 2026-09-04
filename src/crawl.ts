@@ -1,4 +1,5 @@
 import { JSDOM } from "jsdom";
+import pLimit from "p-limit";
 
 export interface ExtractedPageData {
   url: string;
@@ -129,6 +130,101 @@ export async function getHTML(url: string): Promise<string | undefined> {
     console.error(`Error fetching ${url}: ${(err as Error).message}`);
     return;
   }
+}
+
+export class ConcurrentCrawler {
+  private baseURL: string;
+  private pages: Record<string, number>;
+  private limit: ReturnType<typeof pLimit>;
+
+  constructor(baseURL: string, maxConcurrency: number = 3) {
+    this.baseURL = baseURL;
+    this.pages = {};
+    this.limit = pLimit(maxConcurrency);
+  }
+
+  private addPageVisit(normalizedURL: string): boolean {
+    if (this.pages[normalizedURL] !== undefined) {
+      this.pages[normalizedURL]++;
+      return false;
+    }
+    this.pages[normalizedURL] = 1;
+    return true;
+  }
+
+  private async getHTML(currentURL: string): Promise<string> {
+    return await this.limit(async () => {
+      try {
+        const response = await fetch(currentURL, {
+          headers: {
+            "User-Agent": "BootCrawler/1.0",
+          },
+        });
+
+        if (response.status >= 400) {
+          console.error(
+            `Error: HTTP status ${response.status} for ${currentURL}`
+          );
+          return "";
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("text/html")) {
+          console.error(
+            `Error: Content-Type is not text/html (${contentType}) for ${currentURL}`
+          );
+          return "";
+        }
+
+        return await response.text();
+      } catch (err) {
+        console.error(`Error fetching ${currentURL}: ${(err as Error).message}`);
+        return "";
+      }
+    });
+  }
+
+  private async crawlPage(currentURL: string): Promise<void> {
+    try {
+      const baseURLObj = new URL(this.baseURL);
+      const currentURLObj = new URL(currentURL);
+
+      if (baseURLObj.hostname !== currentURLObj.hostname) {
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    const normalizedURL = normalizeURL(currentURL);
+    const isFirstVisit = this.addPageVisit(normalizedURL);
+    if (!isFirstVisit) {
+      return;
+    }
+
+    console.log(`crawling ${currentURL}`);
+    const html = await this.getHTML(currentURL);
+    if (!html) {
+      return;
+    }
+
+    const nextURLs = getURLsFromHTML(html, this.baseURL);
+    const crawlPromises = nextURLs.map((nextURL) => this.crawlPage(nextURL));
+    await Promise.all(crawlPromises);
+  }
+
+  public async crawl(): Promise<Record<string, number>> {
+    await this.crawlPage(this.baseURL);
+    return this.pages;
+  }
+}
+
+export async function crawlSiteAsync(
+  baseURL: string,
+  maxConcurrency: number = 3
+): Promise<Record<string, number>> {
+  const crawler = new ConcurrentCrawler(baseURL, maxConcurrency);
+  return await crawler.crawl();
 }
 
 export async function crawlPage(
